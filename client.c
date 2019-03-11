@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #define FIB_DEV "/dev/fibonacci"
@@ -16,6 +17,9 @@ int main()
     char write_buf[] = "testing writing";
     int offset = 100;  // TODO: test something bigger than the limit
     int i = 0;
+
+    struct timespec begin;
+    struct timespec end;
 
     fd = open(FIB_DEV, O_RDWR);
 
@@ -31,11 +35,15 @@ int main()
 
     for (i = 0; i <= offset; i++) {
         lseek(fd, i, SEEK_SET);
+        clock_gettime(CLOCK_MONOTONIC, &begin);
         sz = read(fd, buf, 1);
+        clock_gettime(CLOCK_MONOTONIC, &end);
         printf("Reading from " FIB_DEV
                " at offset %d, returned the sequence "
                "%lld.\n",
                i, sz);
+        printf("offset %d, expended time is %ld ns\n", i,
+               end.tv_nsec - begin.tv_nsec);
     }
 
     for (i = offset; i >= 0; i--) {
@@ -45,6 +53,8 @@ int main()
                " at offset %d, returned the sequence "
                "%lld.\n",
                i, sz);
+        printf("offset %d, expended time is %ld ns\n", i,
+               end.tv_nsec - begin.tv_nsec);
     }
 
     close(fd);

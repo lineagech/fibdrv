@@ -26,6 +26,7 @@ static DEFINE_MUTEX(fib_mutex);
 
 static long long fib_sequence(long long k)
 {
+#if 1
     /* FIXME: use clz/ctz and fast algorithms to speed up */
     long long f[k + 2];
 
@@ -37,6 +38,33 @@ static long long fib_sequence(long long k)
     }
 
     return f[k];
+#else
+    long long curr;
+    long long a = 0;
+    long long b = 1;
+    long long next_a, next_b;
+    int i;
+    int lz = __builtin_clz(k);
+    int tz = __builtin_ctz(k);
+    int count = 1, target = ((sizeof(long long) << 3) - lz);
+
+    if (k == 0)
+        return 0;
+    curr = k >> ((sizeof(long long) << 3) - lz - count);
+    while (count <= target) {
+        next_a = a * ((b << 1) - a);
+        next_b = a * a + b * b;
+        if ((curr & 0x1) == 1) {
+            a = next_b;
+            b = next_a + next_b;
+        } else {
+            a = next_a;
+            b = next_b;
+        }
+        curr = k >> ((sizeof(long long) << 3) - lz - (++count));
+    }
+    return a;
+#endif
 }
 
 static int fib_open(struct inode *inode, struct file *file)
@@ -60,7 +88,14 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_sequence(*offset);
+    ssize_t result;
+    ktime_t curr;
+    curr = ktime_get();
+    result = (ssize_t) fib_sequence(*offset);
+    curr = ktime_sub(ktime_get(), curr);
+    printk(KERN_ALERT "fib_sequence %lld exec time %lld ns", *offset,
+           (long long) ktime_to_ns(curr));
+    return result;
 }
 
 /* write operation is skipped */
